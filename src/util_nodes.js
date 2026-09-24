@@ -57,6 +57,31 @@ CSL.tokenExec = function (token, Item, item) {
 };
 
 /**
+ * Macro lookup.
+ * <p>Called on the state object. Macros are indexed by name on
+ * first use, so we don't walk the whole style on every call.</p>
+ */
+CSL.getMacroNodes = function (mkey) {
+    var index = this.build.macro_index;
+    if (!index) {
+        index = {};
+        var nodes = this.cslXml.getNodesByName(this.cslXml.dataObj, 'macro');
+        for (var i=0,ilen=nodes.length;i<ilen;i++) {
+            var name = this.cslXml.getAttributeValue(nodes[i], 'name');
+            if (!Object.prototype.hasOwnProperty.call(index, name)) {
+                index[name] = [];
+            }
+            index[name].push(nodes[i]);
+        }
+        this.build.macro_index = index;
+    }
+    if (Object.prototype.hasOwnProperty.call(index, mkey)) {
+        return index[mkey].slice();
+    }
+    return [];
+};
+
+/**
  * Macro expander.
  * <p>Called on the state object.</p>
  */
@@ -72,7 +97,7 @@ CSL.expandMacro = function (macro_key_token, target) {
     
     var hasDate = false;
     var macroid = false;
-    macro_nodes = this.cslXml.getNodesByName(this.cslXml.dataObj, 'macro', mkey);
+    macro_nodes = CSL.getMacroNodes.call(this, mkey);
     if (macro_nodes.length) {
         macroid = this.cslXml.getAttributeValue(macro_nodes[0],'cslid');
         hasDate = this.cslXml.getAttributeValue(macro_nodes[0], "macro-has-date");
@@ -108,24 +133,28 @@ CSL.expandMacro = function (macro_key_token, target) {
     }
 
     // Let's macro
-    var mytarget = CSL.getMacroTarget.call(this, mkey);
+    // Sort keys build some nodes differently, so they get their
+    // own compiled copy of the macro.
+    var macro_name = mkey;
+    if (this.build.extension) {
+        macro_name = mkey + "|" + this.build.root + this.build.extension;
+    }
+    var mytarget = CSL.getMacroTarget.call(this, macro_name);
     if (mytarget) {
         CSL.buildMacro.call(this, mytarget, macro_nodes);
         CSL.configureMacro.call(this, mytarget);
     }
-    if (!this.build.extension) {
-        var func = (function(macro_name) {
-            return function (state, Item, item) {
-                var next = 0;
-                while (next < state.macros[macro_name].length) {
-                    next = CSL.tokenExec.call(state, state.macros[macro_name][next], Item, item);
-                }
-            };
-        }(mkey));
-        var text_node = new CSL.Token("text", CSL.SINGLETON);
-        text_node.execs.push(func);
-        target.push(text_node);
-    }
+    func = (function(macro_name) {
+        return function (state, Item, item) {
+            var next = 0;
+            while (next < state.macros[macro_name].length) {
+                next = CSL.tokenExec.call(state, state.macros[macro_name][next], Item, item);
+            }
+        };
+    }(macro_name));
+    var text_node = new CSL.Token("text", CSL.SINGLETON);
+    text_node.execs.push(func);
+    target.push(text_node);
 
     // Decorations and affixes are in wrapper applied in cs:text
     end_of_macro = new CSL.Token("group", CSL.END);
@@ -150,9 +179,7 @@ CSL.expandMacro = function (macro_key_token, target) {
 
 CSL.getMacroTarget = function (mkey) {
     var mytarget = false;
-    if (this.build.extension) {
-        mytarget = this[this.build.root + this.build.extension].tokens;
-    } else if (!this.macros[mkey]) {
+    if (!this.macros[mkey]) {
         mytarget = [];
         this.macros[mkey] = mytarget;
     }
@@ -171,9 +198,7 @@ CSL.buildMacro = function (mytarget, macro_nodes) {
 };
 
 CSL.configureMacro = function (mytarget) {
-    if (!this.build.extension) {
-        this.configureTokenList(mytarget);
-    }
+    this.configureTokenList(mytarget);
 };
 
 

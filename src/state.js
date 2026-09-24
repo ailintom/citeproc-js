@@ -427,6 +427,9 @@ CSL.Engine.Build = function () {
     // when macros would attempt to call themselves.
     this.macro_stack = [];
     //
+    // macro nodes by name, filled in by CSL.getMacroNodes()
+    this.macro_index = false;
+    //
     // stores the content of an XML text node during processing
     this.text = false;
     //
