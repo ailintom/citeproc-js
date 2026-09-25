@@ -1,3 +1,50 @@
+=====================================================
+HESES mirror of citeproc-js (patched for performance)
+=====================================================
+
+This is **not** the upstream citeproc-js. It is a mirror of the branch
+``perf/macro-lookup-index`` from the fork
+https://github.com/ailintom/citeproc-js, used by the LARVAE / HESES frontend
+through ``@citation-js/plugin-csl``.
+
+What
+----
+
+- Commit ``80a38c5`` ("macro lookup and sort keys") indexes CSL macro lookups
+  in ``citeproc.js`` / ``citeproc_commonjs.js``. It is proposed upstream as
+  Juris-M/citeproc-js PR #276; Zotero ships the same change.
+- Branch ``npm`` / tag ``citeproc-perf-1-npm`` add one commit on top that
+  removes the git submodules (test fixtures, docs, locales). Without it,
+  ``npm install`` tries to clone them over SSH from GitHub and fails.
+  ``citeproc_commonjs.js`` does not need them at runtime.
+
+Why
+---
+
+Engine initialisation is about 8x faster and uses about 90% less memory,
+which matters when rendering many citations in the browser.
+
+How it is used
+--------------
+
+In the root ``package.json`` of the consuming project (npm only honours
+overrides there)::
+
+  "overrides": {
+    "citeproc": "git+https://gitlab.rlp.net/heses/citeproc-js.git#citeproc-perf-1-npm"
+  }
+
+npm 12 also needs ``allow-git=all`` in the project's ``.npmrc``.
+
+This mirror is on gitlab.rlp.net rather than GitHub because npm fetches
+GitHub git dependencies over SSH, which fails on machines without a GitHub
+SSH key.
+
+When the patch is merged upstream, remove the override and delete this
+project.
+
+----
+
 =============
 `citeproc-js`
 =============
